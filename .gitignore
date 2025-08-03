@@ -1,0 +1,66 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+*.egg
+*.egg-info/
+*.log
+
+# Virtual Environment
+venv/
+env/
+ENV/
+.venv/
+
+# Django
+*.sqlite3
+db.sqlite3
+*.log
+*.pot
+*.pyc
+media/
+staticfiles/
+local_settings.py
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
+
+# Redis dumps (если включён snapshotting)
+dump.rdb
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Editor config
+.vscode/
+.idea/
+*.swp
+
+# OS / Linux
+*.pid
+*.seed
+*.bak
+
+# Logs
+logs/
+*.log
+
+# Test output
+htmlcov/
+coverage.xml
+.tox/
+nosetests.xml
+.pytest_cache/
+.coverage
+
+# Docker (если ты будешь использовать)
+docker-compose.override.yml
+*.env
+.env.*
+
+# migrations cache (по желанию)
+**/migrations/**
