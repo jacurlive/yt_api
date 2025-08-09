@@ -1,32 +1,32 @@
 from celery import shared_task
 from .utils.youtube_service import YouTubeInfoService
 from .models import YouTubeVideo
-
+import asyncio
 
 @shared_task
 def fetch_youtube_info_task(url):
     service = YouTubeInfoService()
-    info = service.get_video_info(url)
+
+    # Запускаем async метод в sync Celery таске
+    info = asyncio.run(service.get_video_info(url))
+
+    if not info or "data" not in info:
+        return {"status": "fail", "reason": "no_data"}
+
+    data = info["data"]
 
     video, created = YouTubeVideo.objects.get_or_create(
-        youtube_key=info["youtube_key"],
+        youtube_key=data["youtube_key"],
         defaults={
-            "title": info["title"],
-            "duration": info["duration"],
-            "author": info["author"],
-            "upload_date": info["upload_date"],
-            "video_formats": info["video_formats"],
-            "audio_formats": info["audio_formats"],
+            "title": data["title"],
+            "duration": data["duration"],
+            "author": data["author"],
+            "upload_date": data["upload_date"],
+            "video_formats": data["video_formats"],
+            "audio_formats": data["audio_formats"],
         }
     )
 
-    return {
-        "youtube_key": info["youtube_key"],
-        "title": info["title"],
-        "duration": info["duration"],
-        "author": info["author"],
-        "upload_date": str(info["upload_date"]),
-        "video_formats": info["video_formats"],
-        "audio_formats": info["audio_formats"],
-        "status": "created" if created else "already_exists"
-    }
+    data["status"] = "created" if created else "already_exists"
+    return data
+
