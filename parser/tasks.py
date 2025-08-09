@@ -3,6 +3,7 @@ from .utils.youtube_service import YouTubeInfoService
 from .models import YouTubeVideo
 import asyncio
 
+
 @shared_task
 def fetch_youtube_info_task(url):
     service = YouTubeInfoService(proxy="socks5://127.0.0.1:1080")
@@ -14,6 +15,10 @@ def fetch_youtube_info_task(url):
         return {"status": "fail", "reason": "no_data"}
 
     data = info["data"]
+
+    # Проверяем, есть ли форматы видео
+    if not data.get("video_formats"):
+        return {"status": "fail", "reason": "no_video_formats"}
 
     video, created = YouTubeVideo.objects.get_or_create(
         youtube_key=data["youtube_key"],
@@ -29,4 +34,3 @@ def fetch_youtube_info_task(url):
 
     data["status"] = "created" if created else "already_exists"
     return data
-

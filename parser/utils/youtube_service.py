@@ -118,7 +118,7 @@ class YouTubeInfoService:
                     video_formats[note_clean] = {
                         "file_size": int(size) if size else None,
                         "format_id": fid,
-                        "codec": "avc1" if is_avc else "av01"
+                        # "codec": "avc1" if is_avc else "av01"
                     }
                 else:
                     # Если оба с одинаковым разрешением, но один avc1 — заменяем
@@ -126,7 +126,7 @@ class YouTubeInfoService:
                         video_formats[note_clean] = {
                             "file_size": int(size) if size else None,
                             "format_id": fid,
-                            "codec": "avc1"
+                            # "codec": "avc1"
                         }
                     # Если кодек тот же, но размер больше — заменяем
                     elif current.get("codec") == ("avc1" if is_avc else "av01"):
@@ -134,7 +134,7 @@ class YouTubeInfoService:
                             video_formats[note_clean] = {
                                 "file_size": int(size),
                                 "format_id": fid,
-                                "codec": "avc1" if is_avc else "av01"
+                                # "codec": "avc1" if is_avc else "av01"
                             }
 
             elif mime.startswith(AUDIO_MIME):
