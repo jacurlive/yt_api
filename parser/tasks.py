@@ -5,7 +5,7 @@ import asyncio
 
 @shared_task
 def fetch_youtube_info_task(url):
-    service = YouTubeInfoService()
+    service = YouTubeInfoService(proxy="socks5://127.0.0.1:1080")
 
     # Запускаем async метод в sync Celery таске
     info = asyncio.run(service.get_video_info(url))
