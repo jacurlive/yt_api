@@ -76,7 +76,7 @@ class YouTubeInfoService:
                                         timeout=15) as res:
                     data = await res.json()
 
-            # Path("android_api_raw.json").write_text(json.dumps(data, indent=2, ensure_ascii=False))
+            Path("android_api_raw.json").write_text(json.dumps(data, indent=2, ensure_ascii=False))
 
             if "streamingData" not in data:
                 return None
@@ -92,85 +92,116 @@ class YouTubeInfoService:
         audio_formats = {}
 
         formats = data["streamingData"].get("adaptiveFormats", [])
+
+        # ====== Видео ======
         for fmt in formats:
             mime = fmt.get("mimeType", "")
             size = fmt.get("contentLength")
             fid = str(fmt.get("itag"))
             note = fmt.get("qualityLabel")
 
-            # ==== Видео ====
             if mime.startswith("video/") and "mp4" in mime:
                 codecs = mime.lower()
-                # приоритет avc1, потом av01
                 is_avc = "avc1" in codecs
                 is_av1 = "av01" in codecs
-
                 if not (is_avc or is_av1):
-                    continue  # пропускаем всё остальное
+                    continue
 
                 if not note:
                     continue
                 note_clean = note.replace("p50", "p").replace("p60", "p")
 
                 current = video_formats.get(note_clean)
-                # Записываем приоритет: сначала avc1, потом av01
                 if not current:
                     video_formats[note_clean] = {
                         "file_size": int(size) if size else None,
-                        "format_id": fid,
-                        # "codec": "avc1" if is_avc else "av01"
+                        "format_id": fid
                     }
                 else:
-                    # Если оба с одинаковым разрешением, но один avc1 — заменяем
                     if is_avc and current.get("codec") != "avc1":
                         video_formats[note_clean] = {
                             "file_size": int(size) if size else None,
-                            "format_id": fid,
-                            # "codec": "avc1"
+                            "format_id": fid
                         }
-                    # Если кодек тот же, но размер больше — заменяем
                     elif current.get("codec") == ("avc1" if is_avc else "av01"):
                         if size and int(size) > int(current["file_size"] or 0):
                             video_formats[note_clean] = {
                                 "file_size": int(size),
-                                "format_id": fid,
-                                # "codec": "avc1" if is_avc else "av01"
+                                "format_id": fid
                             }
 
-            elif mime.startswith(AUDIO_MIME):
-                lang = fmt.get("language") or "unknown"
-                lang = lang.lower()
-                if lang not in LANG_WHITELIST:
-                    lang = "unknown"
+        # ====== Аудио ======
+        LANG_WHITELIST = ["ru", "en", "uz", "unknown"]
 
-                fid = int(fmt.get("itag", 0))
-                # приоритет: 140 -> 139 -> остальное m4a по убыванию itag
-                if lang not in audio_formats:
-                    audio_formats[lang] = {
-                        "file_size": int(size) if size else None,
-                        "format_id": str(fid),
-                        "format_note": fmt.get("audioQuality", "")
-                    }
+        def priority(fid):
+            try:
+                base_id = int(str(fid).split("-")[0])  # Берём число до "-"
+            except ValueError:
+                base_id = 0
+            if base_id == 140:
+                return 3
+            elif base_id == 139:
+                return 2
+            return 1
+
+        all_audio = []
+
+        for fmt in formats:
+            if not fmt.get("mimeType", "").startswith(AUDIO_MIME):
+                continue
+
+            lang_code = "unknown"
+            display_name = "unknown"
+
+            if "audioTrack" in fmt:
+                display_name = fmt["audioTrack"].get("displayName", "unknown")
+                lang_code = (fmt["audioTrack"].get("id", "").split(".")[0] or "unknown").lower()
+
+            if lang_code not in LANG_WHITELIST:
+                lang_code = "unknown"
+
+            all_audio.append({
+                "lang": lang_code,
+                "display_name": display_name,
+                "file_size": int(fmt.get("contentLength")) if fmt.get("contentLength") else None,
+                "format_id": str(fmt.get("itag")),
+                "format_note": fmt.get("audioQuality", ""),
+                "is_default": fmt.get("audioTrack", {}).get("audioIsDefault", False)
+            })
+
+        # Фильтрация
+        filtered = [a for a in all_audio if a["lang"] in ("ru", "en", "uz")]
+        if not filtered:
+            default_audio = [a for a in all_audio if a.get("is_default")]
+            if default_audio:
+                filtered = [max(default_audio, key=lambda x: priority(x["format_id"]))]
+            elif all_audio:
+                filtered = [max(all_audio, key=lambda x: priority(x["format_id"]))]
+        else:
+            # Группируем по языкам и выбираем лучший по приоритету
+            best_per_lang = {}
+            for a in filtered:
+                lang = a["lang"]
+                if lang not in best_per_lang:
+                    best_per_lang[lang] = a
                 else:
-                    current_fid = int(audio_formats[lang]["format_id"])
-                    def priority(itag):
-                        if itag == 140:
-                            return 3
-                        elif itag == 139:
-                            return 2
-                        return 1
-                    if priority(fid) > priority(current_fid) or (
-                        priority(fid) == priority(current_fid) and fid > current_fid
-                    ):
-                        audio_formats[lang] = {
-                            "file_size": int(size) if size else None,
-                            "format_id": str(fid),
-                            "format_note": fmt.get("audioQuality", "")
-                        }
+                    if priority(a["format_id"]) > priority(best_per_lang[lang]["format_id"]):
+                        best_per_lang[lang] = a
+                    elif priority(a["format_id"]) == priority(best_per_lang[lang]["format_id"]) and \
+                            (a["file_size"] or 0) > (best_per_lang[lang]["file_size"] or 0):
+                        best_per_lang[lang] = a
+            filtered = list(best_per_lang.values())
 
+        # Формируем словарь audio_formats
+        for a in filtered:
+            audio_formats[a["lang"]] = {
+                "file_size": a["file_size"],
+                "format_id": a["format_id"],
+                "format_note": a["format_note"],
+                "display_name": a["display_name"]
+            }
 
-        # дата
-        upload_date = None
+        # ====== Дата ======
         try:
             if "uploadDate" in data["videoDetails"]:
                 upload_date = datetime.strptime(data["videoDetails"]["uploadDate"], "%Y-%m-%d").date()
@@ -192,6 +223,7 @@ class YouTubeInfoService:
                 "audio_formats": audio_formats
             }
         }
+
 
     def _fetch_yt_dlp(self, url):
         with yt_dlp.YoutubeDL(self.ydl_opts) as ydl:

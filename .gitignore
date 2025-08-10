@@ -65,3 +65,4 @@ docker-compose.override.yml
 # migrations cache (по желанию)
 **/migrations/**
 static/
+*/android_api_raw.json
