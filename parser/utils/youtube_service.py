@@ -29,12 +29,11 @@ class YouTubeInfoService:
     async def get_video_info(self, url: str) -> dict:
         youtube_id = self._extract_id(url)
 
-        # 1 — Пробуем Android API
+
         android_data = await self._fetch_android_api(youtube_id)
         if android_data:
             return android_data
 
-        # 2 — Если не удалось, пробуем через yt-dlp
         return self._fetch_yt_dlp(url)
 
     async def _fetch_android_api(self, youtube_id: str):
@@ -93,7 +92,6 @@ class YouTubeInfoService:
 
         formats = data["streamingData"].get("adaptiveFormats", [])
 
-        # ====== Видео ======
         for fmt in formats:
             mime = fmt.get("mimeType", "")
             size = fmt.get("contentLength")
@@ -130,12 +128,11 @@ class YouTubeInfoService:
                                 "format_id": fid
                             }
 
-        # ====== Аудио ======
         LANG_WHITELIST = ["ru", "en", "uz", "unknown"]
 
         def priority(fid):
             try:
-                base_id = int(str(fid).split("-")[0])  # Берём число до "-"
+                base_id = int(str(fid).split("-")[0])
             except ValueError:
                 base_id = 0
             if base_id == 140:
@@ -153,7 +150,10 @@ class YouTubeInfoService:
             lang_code = "unknown"
             display_name = "unknown"
 
+            full_id = str(fmt.get("itag"))
+
             if "audioTrack" in fmt:
+                full_id = f"{full_id}-{fmt['audioTrack']['id'].split('.')[-1]}"
                 display_name = fmt["audioTrack"].get("displayName", "unknown")
                 lang_code = (fmt["audioTrack"].get("id", "").split(".")[0] or "unknown").lower()
 
@@ -164,12 +164,11 @@ class YouTubeInfoService:
                 "lang": lang_code,
                 "display_name": display_name,
                 "file_size": int(fmt.get("contentLength")) if fmt.get("contentLength") else None,
-                "format_id": str(fmt.get("itag")),
+                "format_id": full_id,
                 "format_note": fmt.get("audioQuality", ""),
                 "is_default": fmt.get("audioTrack", {}).get("audioIsDefault", False)
             })
 
-        # Фильтрация
         filtered = [a for a in all_audio if a["lang"] in ("ru", "en", "uz")]
         if not filtered:
             default_audio = [a for a in all_audio if a.get("is_default")]
@@ -178,7 +177,6 @@ class YouTubeInfoService:
             elif all_audio:
                 filtered = [max(all_audio, key=lambda x: priority(x["format_id"]))]
         else:
-            # Группируем по языкам и выбираем лучший по приоритету
             best_per_lang = {}
             for a in filtered:
                 lang = a["lang"]
@@ -192,7 +190,6 @@ class YouTubeInfoService:
                         best_per_lang[lang] = a
             filtered = list(best_per_lang.values())
 
-        # Формируем словарь audio_formats
         for a in filtered:
             audio_formats[a["lang"]] = {
                 "file_size": a["file_size"],
@@ -201,7 +198,6 @@ class YouTubeInfoService:
                 "display_name": a["display_name"]
             }
 
-        # ====== Дата ======
         try:
             if "uploadDate" in data["videoDetails"]:
                 upload_date = datetime.strptime(data["videoDetails"]["uploadDate"], "%Y-%m-%d").date()

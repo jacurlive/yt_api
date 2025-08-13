@@ -8,7 +8,6 @@ import asyncio
 def fetch_youtube_info_task(url):
     service = YouTubeInfoService(proxy="socks5://127.0.0.1:1080")
 
-    # Запускаем async метод в sync Celery таске
     info = asyncio.run(service.get_video_info(url))
 
     if not info or "data" not in info:
@@ -16,7 +15,6 @@ def fetch_youtube_info_task(url):
 
     data = info["data"]
 
-    # Проверяем, есть ли форматы видео
     if not data.get("video_formats"):
         return {"status": "fail", "reason": "no_video_formats"}
 
