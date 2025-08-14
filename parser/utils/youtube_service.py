@@ -110,25 +110,19 @@ class YouTubeInfoService:
                 note_clean = note.replace("p50", "p").replace("p60", "p")
 
                 current = video_formats.get(note_clean)
+                video_data = {
+                    "file_size": int(size) if size else None,
+                    "format_id": fid,
+                    "url": fmt.get("url")  # 🔹 Добавлено
+                }
                 if not current:
-                    video_formats[note_clean] = {
-                        "file_size": int(size) if size else None,
-                        "format_id": fid
-                    }
+                    video_formats[note_clean] = video_data
                 else:
                     if is_avc and current.get("codec") != "avc1":
-                        video_formats[note_clean] = {
-                            "file_size": int(size) if size else None,
-                            "format_id": fid
-                        }
+                        video_formats[note_clean] = video_data
                     elif current.get("codec") == ("avc1" if is_avc else "av01"):
                         if size and int(size) > int(current["file_size"] or 0):
-                            video_formats[note_clean] = {
-                                "file_size": int(size),
-                                "format_id": fid
-                            }
-
-        LANG_WHITELIST = ["ru", "en", "uz", "unknown"]
+                            video_formats[note_clean] = video_data
 
         def priority(fid):
             try:
@@ -149,13 +143,13 @@ class YouTubeInfoService:
 
             lang_code = "unknown"
             display_name = "unknown"
-
             full_id = str(fmt.get("itag"))
 
-            if "audioTrack" in fmt:
-                full_id = f"{full_id}-{fmt['audioTrack']['id'].split('.')[-1]}"
-                display_name = fmt["audioTrack"].get("displayName", "unknown")
+            if "audioTrack" in fmt and fmt["audioTrack"].get("id"):
                 lang_code = (fmt["audioTrack"].get("id", "").split(".")[0] or "unknown").lower()
+                display_name = fmt["audioTrack"].get("displayName", "unknown")
+            else:
+                lang_code = "unknown"
 
             if lang_code not in LANG_WHITELIST:
                 lang_code = "unknown"
@@ -166,7 +160,8 @@ class YouTubeInfoService:
                 "file_size": int(fmt.get("contentLength")) if fmt.get("contentLength") else None,
                 "format_id": full_id,
                 "format_note": fmt.get("audioQuality", ""),
-                "is_default": fmt.get("audioTrack", {}).get("audioIsDefault", False)
+                "is_default": fmt.get("audioTrack", {}).get("audioIsDefault", False),
+                "url": fmt.get("url")  # 🔹 Добавлено
             })
 
         filtered = [a for a in all_audio if a["lang"] in ("ru", "en", "uz")]
@@ -195,7 +190,8 @@ class YouTubeInfoService:
                 "file_size": a["file_size"],
                 "format_id": a["format_id"],
                 "format_note": a["format_note"],
-                "display_name": a["display_name"]
+                "display_name": a["display_name"],
+                "url": a["url"]  # 🔹 Добавлено
             }
 
         try:
