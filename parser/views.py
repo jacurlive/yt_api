@@ -27,7 +27,7 @@ class VideoTaskStatusView(APIView):
         elif result.state == 'STARTED':
             return Response({"status": "started"}, status=202)
         elif result.state == 'SUCCESS':
-            return Response({"status": "success", "data": result.result}, status=200)
+            return Response(result.result, status=200)
         elif result.state == 'FAILURE':
             return Response({"status": "failed", "error": str(result.result)}, status=500)
         else:

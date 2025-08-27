@@ -10,13 +10,13 @@ def fetch_youtube_info_task(url):
 
     info = asyncio.run(service.get_video_info(url))
 
-    if not info or "data" not in info:
-        return {"status": "fail", "reason": "no_data"}
+    if not info or not info.get("ok") or "result" not in info:
+        return {"ok": False, "result": None}
 
-    data = info["data"]
+    data = info["result"]
 
     if not data.get("video_formats"):
-        return {"status": "fail", "reason": "no_video_formats"}
+        return {"ok": False, "result": None}
 
     video, created = YouTubeVideo.objects.get_or_create(
         youtube_key=data["youtube_key"],
@@ -31,4 +31,5 @@ def fetch_youtube_info_task(url):
     )
 
     data["status"] = "created" if created else "already_exists"
-    return data
+
+    return {"ok": True, "result": data}
